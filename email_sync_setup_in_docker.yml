@@ -1,0 +1,12 @@
+---
+- hosts: all
+  become: yes 
+  
+  tasks:
+
+  - name: Pull the imapsync docker image
+    community.docker.docker_image:
+        name: gilleslamiral/imapsync
+        repository: "gilleslamiral/imapsync:latest"
+        source: pull
+

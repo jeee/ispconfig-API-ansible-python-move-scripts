@@ -1,0 +1,27 @@
+---
+- hosts: all
+  become: yes 
+
+  tasks:
+  
+  - name: include general variables
+    include_vars: server-vars.yml
+
+  - name: "get email addresses"
+    local_action: 
+      module: script
+      cmd: "ispconfig_get_mail_addresses.py --username {{ hostvars[ISPconfig_src_server]['ISPConfig_API_username'] }} --password {{ hostvars[ISPconfig_src_server]['ISPConfig_API_password'] }} --server {{ ISPconfig_src_server }}"
+      args:
+          executable: python3
+    register: email_addresses
+    become: no
+    
+  - debug: msg="{{ email_addresses }}"
+
+  - name: rsync email
+    shell: 
+      cmd: |
+         docker run gilleslamiral/imapsync imapsync --host1 {{ ISPconfig_src_server }} --ssl1 --user1 {{ item }}*{{ master_user_name }} --password1 {{ master_user_pass }} --host2 {{ ISPconfig_dst_server }} --user2 {{ item}}*{{ master_user_name }} --password2 {{ master_user_pass }} --ssl2
+          
+    with_items: "{{ email_addresses.stdout | from_json }}"      
+    register: result

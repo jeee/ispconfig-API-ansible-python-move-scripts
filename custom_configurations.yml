@@ -1,0 +1,30 @@
+---
+- hosts: ispconfig
+  become: yes
+  
+  tasks:
+    - name: Install required packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - python3-mako
+          - python3-wtforms
+      tags:
+        - packages
+      
+    # ansible-galaxy collection install community.general
+    # sudo a2enmod cgi
+    - name: Enable the Apache2 module cgi
+      community.general.apache2_module:
+        state: present
+        name: cgi
+    
+    # systemctl restart apache2
+    - name: Restart apache
+      systemd:
+        name: "apache2"
+        state: restarted
+    

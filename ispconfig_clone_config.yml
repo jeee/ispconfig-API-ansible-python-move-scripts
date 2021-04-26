@@ -1,0 +1,31 @@
+---
+- hosts: ispconfig
+  become: false
+
+  tasks:
+    - name: include general variables
+      include_vars: server-vars.yml
+      
+    - name: get external IP
+      local_action: shell dig +short myip.opendns.com @resolver1.opendns.com
+      register: IP
+      
+    - name: whitelist {{ IP.stdout }} in CSF on destination server
+      shell: csf --add {{ IP.stdout }}
+      become: yes
+      
+    - name: whitelist {{ IP.stdout }} in CSF on source server
+      shell: csf --add {{ IP.stdout }}
+      become: yes    
+      delegate_to: "{{ ISPconfig_src_server }}"
+    
+    - name: "cloning config"
+      local_action: 
+        module: script
+        cmd: "clone_config.py --src-address {{ ISPconfig_src_server }} --src-username {{ hostvars[ISPconfig_src_server]['ISPConfig_API_username'] }} --src-password {{ hostvars[ISPconfig_src_server]['ISPConfig_API_password'] }} --dst-address {{ ISPconfig_dst_server }} --dst-username {{ hostvars[ISPconfig_dst_server]['ISPConfig_API_username'] }} --dst-password {{ hostvars[ISPconfig_dst_server]['ISPConfig_API_password'] }} "
+        args:
+            executable: python3
+
+    - name: remove whitelisted {{ IP.stdout }} from CSF on destination server
+      shell: csf --addrm {{ IP.stdout }}
+      become: yes

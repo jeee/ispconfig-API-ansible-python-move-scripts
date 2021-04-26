@@ -1,0 +1,41 @@
+---
+- hosts: ispconfig
+  become: false
+
+  tasks:
+    - name: include general variables
+      include_vars: server-vars.yml
+      
+    - name: Generate an OpenSSH keypair with a different algorithm (ed25519)
+      community.crypto.openssh_keypair:
+        path: /root/.ssh/id_ssh_ed25519_tmp
+        type: ed25519
+      become: yes
+      register: ssh_key
+    
+    - name: Set authorized key 
+      authorized_key:
+        user: root
+        state: present
+        key: "{{ ssh_key.public_key }}"
+      delegate_to: "{{ ISPconfig_src_server }}"
+      
+    - name: "get rsync folders"
+      local_action: 
+        module: script
+        cmd: "sites_sync.py --src-address {{ ISPconfig_src_server }} --src-username {{ hostvars[ISPconfig_src_server]['ISPConfig_API_username'] }} --src-password {{ hostvars[ISPconfig_src_server]['ISPConfig_API_password'] }} --dst-address {{ ISPconfig_dst_server }} --dst-username {{ hostvars[ISPconfig_dst_server]['ISPConfig_API_username'] }} --dst-password {{ hostvars[ISPconfig_dst_server]['ISPConfig_API_password'] }} "
+        args:
+            executable: python3
+      register: rsync_folders
+      
+    - debug: msg="{{ rsync_folders.stdout }}"
+
+    - name: rsync folders
+      shell: 
+        cmd: |
+          chattr -i {{ item.value.dst }} && rsync -e "ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ssh_ed25519_tmp" -a --groupmap={{ item.value.src_group }}:{{ item.value.dst_group }} --usermap={{ item.value.src_user }}:{{ item.value.dst_user }} {{ ISPconfig_src_server }}:{{ item.value.src }}/* {{ item.value.dst }} && chattr +i {{ item.value.dst }}
+      with_dict: "{{ rsync_folders.stdout | from_json }}"      
+      register: result
+      become: yes
+      
+    - debug: msg="{{ result }}"

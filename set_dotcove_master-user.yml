@@ -1,0 +1,53 @@
+---
+- hosts:
+    - ispconfig
+    - ispconfig_remote
+  become: true
+
+  tasks:
+    - name: include general variables
+      include_vars: server-vars.yml
+      
+    - name: Install required packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+        update_cache: yes
+      vars:
+        packages:
+          - python3-pymysql
+
+    - name: create password file
+      shell: "htpasswd -b -c -s {{ master_password_file }} {{ master_user_name }} {{ master_user_pass }}"
+
+    - name: Check whether /etc/dovecot/dovecot.conf contains master-user config
+      command: grep -Pzo "passdb {[^}]+.+master = yes[^}]+}" /etc/dovecot/dovecot.conf
+      register: checkconf
+      check_mode: no
+      ignore_errors: yes
+      changed_when: no
+      failed_when: checkconf.rc == 2
+
+    - name: Set auth_master_user_separator = * in /etc/dovecot/dovecot.conf
+      lineinfile:
+          path: /etc/dovecot/dovecot.conf
+          regexp: '^auth_master_user_separator = .*'
+          line:  "auth_master_user_separator = *"
+
+    - name: add master-user config to /etc/dovecot/dovecot.conf
+      blockinfile:
+        path: /etc/dovecot/dovecot.conf
+        insertafter: EOF
+        block: |
+          passdb {
+            driver = passwd-file
+            master = yes
+            args = {{ master_password_file }}
+            pass = yes
+          } 
+      when: checkconf.rc == 1
+      
+    - name: restart service dovecot
+      ansible.builtin.service:
+        name: dovecot
+        state: restarted
