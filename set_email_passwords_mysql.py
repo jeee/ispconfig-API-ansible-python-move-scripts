@@ -37,7 +37,7 @@ print(query)
 
 import pymysql
 
-db = pymysql.connect(args.mysql_server, args.mysql_user, args.mysql_pass, args.mysql_db )
+db = pymysql.connect(host=args.mysql_server, user=args.mysql_user, password=args.mysql_pass, database=args.mysql_db )
 
 cursor = db.cursor() 
 

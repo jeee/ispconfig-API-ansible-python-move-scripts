@@ -101,9 +101,11 @@ if args.restore_backup.lower() in ['1', 'true']:
     params = {}
     if 'reseller_id' not in tmp:
       params['reseller_id'] = 0
+    if 'language' not in tmp or tmp['language'] == '':
+      tmp['language'] = 'en'
     for k,v in tmp.items():
       params[k] = v
-      r = get_command('client_add', {'params' : params} )  
+    r = get_command('client_add', {'params' : params} )  
 
   ### DOMAINS
   print('restoring domains')

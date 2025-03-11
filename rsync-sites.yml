@@ -13,11 +13,28 @@
       become: yes
       register: ssh_key
     
-    - name: Set authorized key 
+    - name: Set authorized key
+      become: true
       authorized_key:
         user: root
         state: present
         key: "{{ ssh_key.public_key }}"
+      delegate_to: "{{ ISPconfig_src_server }}"
+
+    - name: Set 'PermitRootLogin yes' in /etc/ssh/sshd_config
+      become: true
+      lineinfile:
+          path: /etc/ssh/sshd_config
+          regexp: '^PermitRootLogin .*'
+          line:  PermitRootLogin yes
+      delegate_to: "{{ ISPconfig_src_server }}"
+
+    - name: Reload the daemon and make sure its enabled
+      become: true
+      systemd:
+        name: ssh
+        enabled: yes
+        state: reloaded
       delegate_to: "{{ ISPconfig_src_server }}"
       
     - name: "get rsync folders"
@@ -37,5 +54,21 @@
       with_dict: "{{ rsync_folders.stdout | from_json }}"      
       register: result
       become: yes
-      
+
+    - name: Set 'PermitRootLogin no' in /etc/ssh/sshd_config
+      become: true
+      lineinfile:
+          path: /etc/ssh/sshd_config
+          regexp: '^PermitRootLogin .*'
+          line:  PermitRootLogin no
+      delegate_to: "{{ ISPconfig_src_server }}"
+
+    - name: Reload the daemon and make sure its enabled
+      become: true
+      systemd:
+        name: ssh
+        enabled: yes
+        state: reloaded
+      delegate_to: "{{ ISPconfig_src_server }}"
+        
     - debug: msg="{{ result }}"
